@@ -16,4 +16,13 @@ class User < ApplicationRecord
   # :confirmable, :lockable, :timeoutable, :trackable and :omniauthable
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable
+
+  has_many :friendships, -> { where("requester_id = ? OR requested_id = ? AND status = ?", self.id, self.id, Friendship.statuses[:accepted]) }
+
+  has_many :requested_friendships, class_name: "Friendship", foreign_key: "requester_id"
+  has_many :friendship_requests, class_name: "Friendship", foreign_key: "requested_id"
+  
+  def request_friendship(user)
+    requested_friendships.create(requested_id: user.id)
+  end
 end
