@@ -17,12 +17,25 @@ class User < ApplicationRecord
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable
 
-  has_many :friendships, -> { where("requester_id = ? OR requested_id = ? AND status = ?", self.id, self.id, Friendship.statuses[:accepted]) }
+  has_many :outgoing_friend_requests, -> { where('Friendships.status = ?', 0) }, class_name: "Friendship", foreign_key: "requester_id"
+  has_many :incoming_friend_requests,-> { where('Friendships.status = ?', 0) }, class_name: "Friendship", foreign_key: "requested_id"
 
-  has_many :requested_friendships, class_name: "Friendship", foreign_key: "requester_id"
-  has_many :friendship_requests, class_name: "Friendship", foreign_key: "requested_id"
-  
+  has_many :requested_friends, through: :outgoing_friend_requests, source: :requested
+  has_many :requesting_friends, through: :incoming_friend_requests, source: :requester
+
+  has_many :accepted_friends, ->(user) { unscope(:where).where('Friendships.status = ? AND (Friendships.requester_id = ? OR Friendships.requested_id = ?)', 1, user.id, user.id) }, class_name: "Friendship"
+
+  def friends
+    Friendship.where('Friendships.status = ? AND (Friendships.requester_id = ? OR Friendships.requsted_id = ?', 1, user.id, user.id)
+  end
+
   def request_friendship(user)
-    requested_friendships.create(requested_id: user.id)
+    Friendship.create(requester: self, requested: user)
+  end
+
+  def accept_friendship(user)
+    friendship = Friendship.find_by(requester: user, requested: self)
+    friendship.status = 1
+    friendship.save
   end
 end
